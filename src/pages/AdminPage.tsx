@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import type { ChangeEvent } from 'react';
-import { doc, setDoc, writeBatch } from 'firebase/firestore';
+import { doc, getDoc, setDoc, writeBatch } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
 import { parseKakaoText } from '../utils/parseKakaoText';
@@ -47,8 +47,20 @@ function UploadTab() {
         setStatus((prev) => ({ ...prev, done }));
       }
 
-      const allDates = days.map((d) => d.date);
-      await setDoc(doc(db, 'settings', 'dateIndex'), { dates: allDates }, { merge: mergeMode });
+      const newDates = days.map((d) => d.date);
+
+      // 이어서 추가 모드: 기존 날짜 목록과 합집합 처리
+      let finalDates = newDates;
+      if (mergeMode) {
+        const indexSnap = await getDoc(doc(db, 'settings', 'dateIndex'));
+        const existingDates: string[] = indexSnap.exists() ? (indexSnap.data().dates ?? []) : [];
+        const merged = new Set([...existingDates, ...newDates]);
+        finalDates = Array.from(merged).sort();
+      } else {
+        finalDates = [...newDates].sort();
+      }
+
+      await setDoc(doc(db, 'settings', 'dateIndex'), { dates: finalDates });
 
       setStatus({ total: days.length, done: days.length, phase: 'done', message: `${days.length}개 날짜 저장 완료` });
     } catch (err) {
