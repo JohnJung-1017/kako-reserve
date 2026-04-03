@@ -1,0 +1,87 @@
+@import "tailwindcss";
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+  background: #b2c7d9;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overscroll-behavior: none;
+}
+
+#root {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* iOS 안전 영역 대응 */
+.safe-bottom {
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+}
+
+.safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+/* react-calendar overrides */
+.react-calendar {
+  width: 100%;
+  border: none;
+  font-family: inherit;
+  background: white;
+  border-radius: 12px;
+}
+
+.react-calendar__tile--active {
+  background: #fee500 !important;
+  color: #000 !important;
+  border-radius: 50%;
+}
+
+.react-calendar__tile--now {
+  background: #fff3b0;
+  border-radius: 50%;
+}
+
+.react-calendar__tile:enabled:hover,
+.react-calendar__tile:enabled:focus {
+  background: #fff9c4;
+  border-radius: 50%;
+}
+
+.react-calendar__navigation button:enabled:hover,
+.react-calendar__navigation button:enabled:focus {
+  background: #fff9c4;
+}
+
+/* 대화 있는 날짜 점 표시 */
+.has-messages {
+  position: relative;
+}
+
+.has-messages::after {
+  content: '';
+  position: absolute;
+  bottom: 3px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 5px;
+  height: 5px;
+  background: #fee500;
+  border-radius: 50%;
+}
+
+.has-keyword::after {
+  background: #ff6b6b !important;
+}
+
+/* 메시지 영역 스크롤 부드럽게 */
+.messages-container {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
