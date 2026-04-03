@@ -2,6 +2,28 @@ import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 
+function getFirebaseErrorMessage(code: string): string {
+  switch (code) {
+    case 'auth/invalid-email':
+      return '이메일 형식이 올바르지 않습니다.';
+    case 'auth/user-not-found':
+    case 'auth/wrong-password':
+    case 'auth/invalid-credential':
+      return '이메일 또는 비밀번호가 올바르지 않습니다.';
+    case 'auth/too-many-requests':
+      return '로그인 시도가 너무 많습니다. 잠시 후 다시 시도해주세요.';
+    case 'auth/network-request-failed':
+      return '네트워크 오류입니다. 인터넷 연결을 확인해주세요.';
+    case 'auth/configuration-not-found':
+    case 'auth/operation-not-allowed':
+      return 'Firebase 이메일/비밀번호 로그인이 비활성화되어 있습니다.\nFirebase Console → Authentication → Sign-in method에서 활성화해주세요.';
+    case 'auth/unauthorized-domain':
+      return '이 도메인이 Firebase 승인 도메인에 등록되어 있지 않습니다.\nFirebase Console → Authentication → Settings → 승인된 도메인에 추가해주세요.';
+    default:
+      return `로그인 오류: ${code}`;
+  }
+}
+
 export default function LoginPage() {
   const { login } = useAuth();
   const [email, setEmail] = useState('');
@@ -15,8 +37,10 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(email, password);
-    } catch {
-      setError('이메일 또는 비밀번호가 올바르지 않습니다.');
+    } catch (err: unknown) {
+      const code = (err as { code?: string })?.code ?? 'unknown';
+      setError(getFirebaseErrorMessage(code));
+      console.error('Login error:', err);
     } finally {
       setLoading(false);
     }
@@ -25,7 +49,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#b2c7d9]">
       <div className="w-full max-w-sm px-6">
-        {/* KakaoTalk 로고 영역 */}
+        {/* 로고 */}
         <div className="text-center mb-10">
           <div className="w-20 h-20 bg-[#fee500] rounded-[28px] flex items-center justify-center mx-auto mb-4 shadow-md">
             <svg viewBox="0 0 24 24" className="w-12 h-12 fill-[#381e1f]">
@@ -55,7 +79,9 @@ export default function LoginPage() {
           />
 
           {error && (
-            <p className="text-red-300 text-xs text-center">{error}</p>
+            <div className="bg-red-100/80 border border-red-300 rounded-xl px-4 py-3">
+              <p className="text-red-700 text-xs whitespace-pre-wrap leading-relaxed">{error}</p>
+            </div>
           )}
 
           <button

@@ -38,14 +38,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const loadSettings = async (): Promise<AppSettings> => {
-    const ref = doc(db, 'settings', 'users');
-    const snap = await getDoc(ref);
-    if (snap.exists()) {
-      return snap.data() as AppSettings;
+    try {
+      const ref = doc(db, 'settings', 'users');
+      const snap = await getDoc(ref);
+      if (snap.exists()) {
+        return snap.data() as AppSettings;
+      }
+      // 최초 실행 시 기본 설정 저장 시도
+      try {
+        await setDoc(ref, DEFAULT_SETTINGS);
+      } catch {
+        // Firestore 규칙으로 쓰기 실패해도 기본값으로 진행
+      }
+      return DEFAULT_SETTINGS;
+    } catch (err) {
+      console.warn('Firestore settings load failed, using defaults:', err);
+      return DEFAULT_SETTINGS;
     }
-    // 최초 실행 시 기본 설정 저장
-    await setDoc(ref, DEFAULT_SETTINGS);
-    return DEFAULT_SETTINGS;
   };
 
   const determineRole = (email: string, appSettings: AppSettings): UserRole => {
@@ -64,32 +73,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setUser(firebaseUser);
-      if (firebaseUser?.email) {
-        const appSettings = await loadSettings();
-        setSettings(appSettings);
-        // 이메일이 settings에 없으면 처음 로그인한 것으로 간주하여 역할 결정
-        let r = determineRole(firebaseUser.email, appSettings);
-        // settings에 email이 아직 없는 경우: userA.email이 비어있으면 첫 번째 유저
-        if (r === null) {
-          if (!appSettings.userA.email) {
-            const updated = { ...appSettings, userA: { ...appSettings.userA, email: firebaseUser.email } };
-            await setDoc(doc(db, 'settings', 'users'), updated);
-            setSettings(updated);
-            r = 'A';
-          } else if (!appSettings.userB.email) {
-            const updated = { ...appSettings, userB: { ...appSettings.userB, email: firebaseUser.email } };
-            await setDoc(doc(db, 'settings', 'users'), updated);
-            setSettings(updated);
-            r = 'B';
+      try {
+        setUser(firebaseUser);
+        if (firebaseUser?.email) {
+          const appSettings = await loadSettings();
+          setSettings(appSettings);
+
+          let r = determineRole(firebaseUser.email, appSettings);
+
+          // settings에 이메일이 아직 등록되지 않은 경우 자동 등록
+          if (r === null) {
+            if (!appSettings.userA.email) {
+              const updated = { ...appSettings, userA: { ...appSettings.userA, email: firebaseUser.email } };
+              try {
+                await setDoc(doc(db, 'settings', 'users'), updated);
+              } catch {
+                // 쓰기 실패 무시
+              }
+              setSettings(updated);
+              r = 'A';
+            } else if (!appSettings.userB.email) {
+              const updated = { ...appSettings, userB: { ...appSettings.userB, email: firebaseUser.email } };
+              try {
+                await setDoc(doc(db, 'settings', 'users'), updated);
+              } catch {
+                // 쓰기 실패 무시
+              }
+              setSettings(updated);
+              r = 'B';
+            }
           }
+          setRole(r);
+        } else {
+          setRole(null);
+          setSettings(null);
         }
-        setRole(r);
-      } else {
-        setRole(null);
-        setSettings(null);
+      } catch (err) {
+        console.error('Auth state change error:', err);
+      } finally {
+        // 에러 발생 여부와 무관하게 반드시 loading 해제
+        setLoading(false);
       }
-      setLoading(false);
     });
     return unsubscribe;
   }, []);
